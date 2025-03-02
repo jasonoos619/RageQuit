@@ -9,6 +9,8 @@ let enemiesKilled = 0;
 let enemiesPerLevel = 10;
 let blastCooldown = 0;
 let particles = [];
+let screenShake = 0;
+let flashAlpha = 0;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -19,6 +21,13 @@ function setup() {
 }
 
 function draw() {
+  // Apply screen shake if active
+  if (screenShake > 0) {
+    translate(random(-screenShake, screenShake), random(-screenShake, screenShake));
+    screenShake *= 0.9;
+    if (screenShake < 0.5) screenShake = 0;
+  }
+  
   drawBarnBackground();
   
   if (gameState === "playing") {
@@ -98,6 +107,13 @@ function draw() {
       }
     }
     
+    // Draw flash effect
+    if (flashAlpha > 0) {
+      fill(255, 255, 200, flashAlpha);
+      rect(0, 0, width, height);
+      flashAlpha *= 0.8;
+    }
+    
     showScoreAndLevel();
   } else if (gameState === "gameover") {
     showGameOver();
@@ -172,6 +188,12 @@ function createBlast() {
       color: color(255, random(100, 255), 0, 200)
     });
   }
+  
+  // Add screen shake effect
+  screenShake = 15;
+  
+  // Add flash effect
+  flashAlpha = 150;
   
   // Increased blast radius and damage to enemies
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -584,9 +606,19 @@ class Bullet {
     this.angle = atan2(mouseY - y, mouseX - x);
     this.spinAngle = 0;
     this.spinSpeed = 0.2;
+    this.trail = [];
+    this.maxTrailLength = 5;
   }
   
   update() {
+    // Add current position to trail
+    this.trail.push({x: this.x, y: this.y});
+    
+    // Keep trail at max length
+    if (this.trail.length > this.maxTrailLength) {
+      this.trail.shift();
+    }
+    
     this.x += cos(this.angle) * this.speed;
     this.y += sin(this.angle) * this.speed;
     this.angle += sin(this.spinAngle) * 0.05;
@@ -594,69 +626,120 @@ class Bullet {
   }
   
   show() {
+    // Draw trail
+    noStroke();
+    for (let i = 0; i < this.trail.length; i++) {
+      let alpha = map(i, 0, this.trail.length, 50, 200);
+      let size = map(i, 0, this.trail.length, this.size * 0.3, this.size * 0.8);
+      
+      if (this.type === 0) {
+        fill(0, 255, 0, alpha);
+      } else if (this.type === 1) {
+        fill(0, 100, 255, alpha);
+      } else {
+        fill(255, 50, 50, alpha);
+      }
+      
+      ellipse(this.trail[i].x, this.trail[i].y, size, size);
+    }
+    
     push();
     translate(this.x, this.y);
     rotate(this.angle);
     
+    // Draw glow effect
     if (this.type === 0) {
-      fill(0, 153, 0);
-      ellipse(0, 0, this.size, this.size / 1.5);
-
-      fill(50);
-      rect(-this.size / 3, -this.size / 8, this.size / 6, this.size / 4);
-      rect(-this.size / 2.7, -this.size / 5.5, this.size / 4, this.size / 10);
-
-      fill(255, 255, 0);
-      ellipse(this.size / 4, -this.size / 10, this.size / 8);
-      fill(0, 0, 255);
-      ellipse(this.size / 3, this.size / 15, this.size / 8);
-      fill(255, 0, 0);
-      ellipse(this.size / 6, this.size / 10, this.size / 8);
-      fill(0, 255, 0);
-      ellipse(this.size / 2.5, -this.size / 20, this.size / 8);
-
-      fill(30);
-      ellipse(-this.size / 4, 0, this.size / 10);
-      ellipse(this.size / 4, 0, this.size / 10);
-    } 
-    else if (this.type === 1) {
-      for (let i = 0; i < 5; i++) {
-        fill(0, 0, 255, 100 - i * 20);
-        ellipse(0, 0, this.size + i * 2, (this.size/1.5) + i * 2);
+      for (let i = 3; i > 0; i--) {
+        fill(0, 255, 0, 50 / i);
+        ellipse(0, 0, this.size * 1.5 * i, this.size * i);
       }
-      
-      fill(50);
-      ellipse(0, 0, this.size, this.size/1.5);
-      
-      fill(30);
-      arc(-this.size/2.5, 0, this.size/2, this.size/3, PI/2, 3*PI/2);
-      arc(this.size/2.5, 0, this.size/2, this.size/3, -PI/2, PI/2);
-      
-      fill(255, 0, 0);
-      ellipse(this.size/4, -this.size/10, this.size/10);
-      fill(0, 0, 255);
-      ellipse(this.size/3, this.size/15, this.size/10);
-      fill(255, 255, 0);
-      ellipse(this.size/6, this.size/10, this.size/10);
-      fill(0, 255, 0);
-      ellipse(this.size/2.5, -this.size/20, this.size/10);
+    } else if (this.type === 1) {
+      for (let i = 3; i > 0; i--) {
+        fill(0, 100, 255, 50 / i);
+        ellipse(0, 0, this.size * 1.5 * i, this.size * i);
+      }
+    } else {
+      for (let i = 3; i > 0; i--) {
+        fill(255, 50, 50, 50 / i);
+        ellipse(0, 0, this.size * 1.5 * i, this.size * i);
+      }
     }
-    else {
-      for (let i = 0; i < 5; i++) {
-        fill(255, 0, 0, 100 - i * 20);
-        rect(-this.size/2 - i, -this.size/4 - i, this.size + i * 2, this.size/2 + i * 2, 8);
-      }
+    
+    if (this.type === 0) { // Xbox-style controller
+      // Main body
+      fill(0, 200, 0);
+      rect(-this.size/2, -this.size/3, this.size, this.size/1.5, this.size/5);
       
-      fill(255, 0, 0);
-      rect(-this.size/2, -this.size/4, this.size, this.size/2, 8);
-      
+      // D-pad
+      fill(50);
+      ellipse(-this.size/4, 0, this.size/3, this.size/3);
       fill(30);
-      rect(-this.size/3, -this.size/8, this.size/6, this.size/4);
-      rect(-this.size/2.7, -this.size/5.5, this.size/4, this.size/10);
+      rect(-this.size/4 - this.size/12, -this.size/20, this.size/6, this.size/10);
+      rect(-this.size/4 - this.size/20, -this.size/12, this.size/10, this.size/6);
       
+      // Buttons
+      fill(255, 255, 0);
+      ellipse(this.size/4, -this.size/10, this.size/8);
+      fill(0, 0, 255);
+      ellipse(this.size/3, this.size/15, this.size/8);
+      fill(255, 0, 0);
+      ellipse(this.size/6, this.size/10, this.size/8);
+      fill(0, 255, 0);
+      ellipse(this.size/2.5, -this.size/20, this.size/8);
+      
+      // Joysticks
+      fill(30);
+      ellipse(-this.size/4, 0, this.size/10);
+      ellipse(this.size/4, 0, this.size/10);
+    } 
+    else if (this.type === 1) { // PlayStation-style controller
+      // Main body
+      fill(50, 50, 200);
+      rect(-this.size/2, -this.size/3, this.size, this.size/1.5, this.size/5);
+      
+      // D-pad
+      fill(30);
+      rect(-this.size/3, -this.size/10, this.size/5, this.size/5);
+      
+      // Buttons
+      fill(255, 100, 255);
+      ellipse(this.size/4, -this.size/10, this.size/8);
+      fill(0, 200, 255);
+      ellipse(this.size/3, this.size/15, this.size/8);
+      fill(255, 50, 50);
+      ellipse(this.size/6, this.size/10, this.size/8);
+      fill(50, 255, 50);
+      ellipse(this.size/2.5, -this.size/20, this.size/8);
+      
+      // PlayStation logo
+      fill(255);
+      ellipse(0, 0, this.size/6, this.size/6);
+      
+      // Joysticks
+      fill(30);
+      ellipse(-this.size/5, this.size/10, this.size/10);
+      ellipse(this.size/5, -this.size/10, this.size/10);
+    }
+    else { // Nintendo-style controller
+      // Main body
+      fill(255, 50, 50);
+      rect(-this.size/2, -this.size/3, this.size, this.size/1.5, this.size/5);
+      
+      // D-pad
+      fill(30);
+      ellipse(-this.size/3, 0, this.size/4, this.size/4);
+      fill(50);
+      rect(-this.size/3 - this.size/12, -this.size/20, this.size/6, this.size/10);
+      rect(-this.size/3 - this.size/20, -this.size/12, this.size/10, this.size/6);
+      
+      // Buttons
       fill(0);
       ellipse(this.size/4, 0, this.size/6);
       ellipse(this.size/2.5, 0, this.size/6);
+      
+      // Nintendo logo
+      fill(255);
+      rect(-this.size/10, -this.size/15, this.size/5, this.size/7.5, 2);
     }
     
     pop();
@@ -759,26 +842,58 @@ class PowerUp {
 }
 
 function drawBarnBackground() {
-  background(139, 69, 19);
-  fill(160, 82, 45);
-  rect(0, 0, width, 50);
-  rect(0, height-50, width, 50);
-  rect(0, 0, 50, height);
-  rect(width-50, 0, 50, height);
+  // Create a dynamic arcade-style grid background
+  let gridSize = 50;
+  let time = frameCount * 0.01;
   
-  stroke(90, 50, 30);
-  strokeWeight(2);
-  for (let i = 60; i < width-50; i += 60) {
-    line(i, 0, i, height);
+  // Dark background with gradient
+  background(20, 20, 40);
+  
+  // Draw animated grid
+  stroke(0, 100, 255, 50);
+  strokeWeight(1);
+  
+  // Horizontal lines
+  for (let y = 0; y < height; y += gridSize) {
+    let alpha = map(sin(time + y * 0.01), -1, 1, 30, 100);
+    stroke(0, 100, 255, alpha);
+    line(0, y, width, y);
   }
-  for (let i = 60; i < height-50; i += 60) {
-    line(0, i, width, i);
+  
+  // Vertical lines
+  for (let x = 0; x < width; x += gridSize) {
+    let alpha = map(sin(time + x * 0.01), -1, 1, 30, 100);
+    stroke(0, 100, 255, alpha);
+    line(x, 0, x, height);
   }
+  
+  // Add some floating particles in the background
   noStroke();
+  for (let i = 0; i < 20; i++) {
+    let x = (frameCount * 0.5 + i * 100) % width;
+    let y = (noise(i, frameCount * 0.01) * height);
+    let size = noise(i * 2, frameCount * 0.01) * 5 + 2;
+    let alpha = map(sin(frameCount * 0.05 + i), -1, 1, 100, 200);
+    
+    fill(100, 200, 255, alpha);
+    ellipse(x, y, size, size);
+  }
   
-  fill(218, 165, 32);
-  ellipse(100, 100, 80, 60);
-  ellipse(700, 500, 80, 60);
+  // Add some glow effects at the corners
+  drawGlowEffect(100, 100, color(0, 100, 255, 50));
+  drawGlowEffect(width - 100, 100, color(255, 100, 0, 50));
+  drawGlowEffect(100, height - 100, color(255, 0, 100, 50));
+  drawGlowEffect(width - 100, height - 100, color(100, 255, 0, 50));
+  
+  noStroke();
+}
+
+function drawGlowEffect(x, y, glowColor) {
+  for (let i = 5; i > 0; i--) {
+    let size = 100 + sin(frameCount * 0.05) * 20;
+    fill(red(glowColor), green(glowColor), blue(glowColor), alpha(glowColor) / i);
+    ellipse(x, y, size * i, size * i);
+  }
 }
 
 function spawnEnemy() {
@@ -842,36 +957,71 @@ function levelUp() {
 }
 
 function showScoreAndLevel() {
-  fill(255);
-  textSize(24);
-  textAlign(LEFT);
-  text(`Score: ${score}`, 60, 40);
-  textAlign(RIGHT);
-  text(`Level: ${level}`, width-60, 40);
+  // Draw a semi-transparent header bar
+  fill(0, 0, 30, 200);
+  rect(0, 0, width, 80);
   
-  textAlign(CENTER);
-  text(`Enemies: ${enemiesKilled}/${enemiesPerLevel}`, width/2, 40);
+  // Score with glow effect
+  drawTextWithGlow(`Score: ${score}`, 60, 40, 24, color(255), color(0, 200, 255, 150));
   
+  // Level with glow effect
+  drawTextWithGlow(`Level: ${level}`, width-60, 40, 24, color(255), color(255, 100, 0, 150));
+  
+  // Enemies counter with glow effect
+  drawTextWithGlow(`Enemies: ${enemiesKilled}/${enemiesPerLevel}`, width/2, 40, 24, color(255), color(255, 50, 255, 150));
+  
+  // Blast cooldown
   if (blastCooldown > 0) {
-    fill(255, 0, 0);
-    text(`Blast: ${Math.ceil(blastCooldown/60)}s`, width/2, 70);
+    drawTextWithGlow(`Blast: ${Math.ceil(blastCooldown/60)}s`, width/2, 70, 24, color(255, 0, 0), color(255, 50, 0, 150));
   } else {
-    fill(0, 255, 0);
-    text(`Blast Ready (Right-Click or SPACE)`, width/2, 70);
+    drawTextWithGlow(`Blast Ready (Right-Click or SPACE)`, width/2, 70, 24, color(0, 255, 0), color(0, 255, 50, 150));
   }
 }
 
+function drawTextWithGlow(txt, x, y, size, textColor, glowColor) {
+  textSize(size);
+  
+  // Draw glow
+  fill(glowColor);
+  for (let i = 0; i < 5; i++) {
+    text(txt, x + cos(i) * 2, y + sin(i) * 2);
+    text(txt, x - cos(i) * 2, y - sin(i) * 2);
+  }
+  
+  // Draw main text
+  fill(textColor);
+  text(txt, x, y);
+}
+
 function showGameOver() {
-  fill(0, 150);
+  // Create a pulsing dark overlay
+  let alpha = map(sin(frameCount * 0.05), -1, 1, 150, 200);
+  fill(0, alpha);
   rect(0, 0, width, height);
+  
+  // Draw a glowing game over text
+  let pulseSize = map(sin(frameCount * 0.1), -1, 1, 48, 56);
+  
+  // Glow effect
+  for (let i = 5; i > 0; i--) {
+    fill(255, 0, 0, 150 / i);
+    textSize(pulseSize + i * 2);
+    textAlign(CENTER);
+    text("Game Over", width/2, height/2 - 20);
+  }
+  
+  // Main text
   fill(255);
-  textSize(48);
-  textAlign(CENTER);
+  textSize(pulseSize);
   text("Game Over", width/2, height/2 - 20);
-  textSize(24);
-  text(`Final Score: ${score}`, width/2, height/2 + 20);
-  text(`Level Reached: ${level}`, width/2, height/2 + 50);
-  text("Press Space to restart", width/2, height/2 + 80);
+  
+  // Score and level info with glow
+  drawTextWithGlow(`Final Score: ${score}`, width/2, height/2 + 40, 28, color(255), color(0, 200, 255, 150));
+  drawTextWithGlow(`Level Reached: ${level}`, width/2, height/2 + 80, 28, color(255), color(255, 100, 0, 150));
+  
+  // Restart prompt with pulsing effect
+  let promptSize = map(sin(frameCount * 0.1), -1, 1, 24, 30);
+  drawTextWithGlow("Press Space to restart", width/2, height/2 + 130, promptSize, color(255), color(0, 255, 0, 150));
 }
 
 function resetGame() {
